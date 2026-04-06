@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import fastifyJwt from "@fastify/jwt";
 import { extractRoutes } from "./routes/extract.js";
@@ -15,6 +16,11 @@ async function buildServer() {
     logger: {
       level: process.env.LOG_LEVEL || "info",
     },
+  });
+
+  await fastify.register(cors, {
+    origin: process.env.DASHBOARD_ORIGIN || "http://localhost:3001",
+    credentials: true,
   });
 
   await fastify.register(multipart, {
