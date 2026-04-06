@@ -3,6 +3,7 @@ import multipart from "@fastify/multipart";
 import fastifyJwt from "@fastify/jwt";
 import { extractRoutes } from "./routes/extract.js";
 import { authRoutes } from "./routes/auth.js";
+import { billingRoutes } from "./routes/billing.js";
 import { apiKeyMiddleware } from "./middleware/apiKey.js";
 import { runMigrations } from "./lib/db.js";
 
@@ -41,7 +42,22 @@ async function buildServer() {
     }
   );
 
+  // Raw body parser for Stripe webhook signature verification
+  fastify.addContentTypeParser(
+    "application/json",
+    { parseAs: "buffer" },
+    (req, body, done) => {
+      (req as typeof req & { rawBody: Buffer }).rawBody = body as Buffer;
+      try {
+        done(null, JSON.parse((body as Buffer).toString()));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    }
+  );
+
   await fastify.register(authRoutes);
+  await fastify.register(billingRoutes);
 
   // /extract is protected by API key
   await fastify.register(async (instance) => {

@@ -140,6 +140,13 @@ export async function extractRoutes(fastify: FastifyInstance) {
           reply.header("X-RateLimit-Reset", usage.periodEnd);
         }
 
+        // Upgrade CTA when user is at or above 80% of their limit
+        const nearLimit =
+          usage &&
+          usage.limit !== null &&
+          usage.remaining !== null &&
+          usage.remaining <= Math.ceil(usage.limit * 0.2);
+
         return reply.status(200).send({
           success: true,
           data: extracted,
@@ -148,6 +155,14 @@ export async function extractRoutes(fastify: FastifyInstance) {
             mediaType,
             fileSize: fileBuffer.length,
           },
+          ...(nearLimit
+            ? {
+                upgradeCta: {
+                  message: `You have used ${usage!.used} of ${usage!.limit} extractions this month. Upgrade your plan for more.`,
+                  upgradeUrl: "/billing/checkout",
+                },
+              }
+            : {}),
         });
       } catch (err: unknown) {
         const error = err as Error;
