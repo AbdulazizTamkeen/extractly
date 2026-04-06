@@ -8,6 +8,7 @@ import {
   revokeApiKey,
   rotateApiKey,
 } from "../lib/auth.js";
+import { getUsageInfo } from "../lib/usage.js";
 
 interface RegisterBody {
   email: string;
@@ -151,6 +152,24 @@ export async function authRoutes(fastify: FastifyInstance) {
         prefix: result.record.keyPrefix,
         name: result.record.name,
         createdAt: result.record.createdAt,
+      });
+    }
+  );
+
+  // GET /usage — current billing period usage stats
+  fastify.get(
+    "/usage",
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      const userId = (request.user as { sub: string }).sub;
+      const info = await getUsageInfo(userId);
+      return reply.send({
+        tier: info.tier,
+        used: info.used,
+        limit: info.limit,
+        remaining: info.remaining,
+        periodStart: info.periodStart,
+        periodEnd: info.periodEnd,
       });
     }
   );

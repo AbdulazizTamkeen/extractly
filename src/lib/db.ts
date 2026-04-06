@@ -36,6 +36,16 @@ export async function runMigrations(): Promise<void> {
 
       CREATE INDEX IF NOT EXISTS api_keys_key_prefix_idx ON api_keys(key_prefix);
       CREATE INDEX IF NOT EXISTS api_keys_user_id_idx ON api_keys(user_id);
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS tier VARCHAR(20) NOT NULL DEFAULT 'free';
+
+      CREATE TABLE IF NOT EXISTS usage_records (
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        period_start DATE NOT NULL,
+        count INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, period_start)
+      );
     `);
   } finally {
     client.release();

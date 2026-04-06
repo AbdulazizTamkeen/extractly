@@ -126,6 +126,20 @@ export async function extractRoutes(fastify: FastifyInstance) {
           htmlContent ?? undefined
         );
 
+        const usage = request.usageInfo;
+        if (usage) {
+          reply.header(
+            "X-RateLimit-Limit",
+            usage.limit === null ? "unlimited" : String(usage.limit)
+          );
+          reply.header(
+            "X-RateLimit-Remaining",
+            usage.remaining === null ? "unlimited" : String(usage.remaining)
+          );
+          reply.header("X-RateLimit-Used", String(usage.used));
+          reply.header("X-RateLimit-Reset", usage.periodEnd);
+        }
+
         return reply.status(200).send({
           success: true,
           data: extracted,
