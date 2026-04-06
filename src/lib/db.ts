@@ -1,0 +1,43 @@
+import { Pool } from "pg";
+
+let pool: Pool | null = null;
+
+export function getPool(): Pool {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 10,
+    });
+  }
+  return pool;
+}
+
+export async function runMigrations(): Promise<void> {
+  const client = await getPool().connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        key_hash VARCHAR(255) NOT NULL,
+        key_prefix VARCHAR(20) NOT NULL,
+        name VARCHAR(255) NOT NULL DEFAULT 'default',
+        last_used_at TIMESTAMPTZ,
+        revoked_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS api_keys_key_prefix_idx ON api_keys(key_prefix);
+      CREATE INDEX IF NOT EXISTS api_keys_user_id_idx ON api_keys(user_id);
+    `);
+  } finally {
+    client.release();
+  }
+}

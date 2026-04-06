@@ -1,6 +1,10 @@
 import Fastify from "fastify";
 import multipart from "@fastify/multipart";
+import fastifyJwt from "@fastify/jwt";
 import { extractRoutes } from "./routes/extract.js";
+import { authRoutes } from "./routes/auth.js";
+import { apiKeyMiddleware } from "./middleware/apiKey.js";
+import { runMigrations } from "./lib/db.js";
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -19,7 +23,31 @@ async function buildServer() {
     },
   });
 
-  await fastify.register(extractRoutes);
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    throw new Error("JWT_SECRET environment variable is required");
+  }
+  await fastify.register(fastifyJwt, { secret: jwtSecret });
+
+  // Decorator used by auth routes for JWT-protected endpoints
+  fastify.decorate(
+    "authenticate",
+    async (request: Parameters<typeof fastify.authenticate>[0], reply: Parameters<typeof fastify.authenticate>[1]) => {
+      try {
+        await request.jwtVerify();
+      } catch {
+        return reply.status(401).send({ error: "Unauthorized" });
+      }
+    }
+  );
+
+  await fastify.register(authRoutes);
+
+  // /extract is protected by API key
+  await fastify.register(async (instance) => {
+    instance.addHook("preHandler", apiKeyMiddleware);
+    await instance.register(extractRoutes);
+  });
 
   return fastify;
 }
@@ -29,6 +57,16 @@ async function start() {
     console.error("ANTHROPIC_API_KEY environment variable is required");
     process.exit(1);
   }
+  if (!process.env.DATABASE_URL) {
+    console.error("DATABASE_URL environment variable is required");
+    process.exit(1);
+  }
+  if (!process.env.JWT_SECRET) {
+    console.error("JWT_SECRET environment variable is required");
+    process.exit(1);
+  }
+
+  await runMigrations();
 
   const fastify = await buildServer();
 
