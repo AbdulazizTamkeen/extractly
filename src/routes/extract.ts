@@ -186,8 +186,4 @@ export async function extractRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Health check
-  fastify.get("/health", async (_request, reply) => {
-    return reply.send({ status: "ok", service: "extractly" });
-  });
 }

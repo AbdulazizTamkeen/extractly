@@ -62,6 +62,11 @@ async function buildServer() {
     }
   );
 
+  // Health check — must be outside the API key middleware scope
+  fastify.get("/health", async (_request, reply) => {
+    return reply.send({ status: "ok", service: "extractly" });
+  });
+
   await fastify.register(authRoutes);
   await fastify.register(billingRoutes);
 
